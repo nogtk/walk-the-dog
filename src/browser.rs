@@ -1,6 +1,10 @@
 use anyhow::{anyhow, Result};
 use futures::Future;
-use wasm_bindgen::{closure::WasmClosureFnOnce, prelude::*, JsCast, JsValue};
+use wasm_bindgen::{
+    closure::{WasmClosure, WasmClosureFnOnce},
+    prelude::*,
+    JsCast, JsValue,
+};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     CanvasRenderingContext2d, Document, HtmlCanvasElement, HtmlImageElement, Response, Window,
@@ -11,6 +15,8 @@ macro_rules! log {
     web_sys::console::log_1(&format!( $( $t )* ).into())
   }
 }
+
+pub type LoopClosure = Closure<dyn FnMut(f64)>;
 
 pub fn window() -> Result<Window> {
     web_sys::window().ok_or_else(|| anyhow!("No Window Found"))
@@ -79,4 +85,25 @@ where
     F: 'static + WasmClosureFnOnce<A, R>,
 {
     Closure::once(fn_once)
+}
+
+pub fn request_animation_frame(callback: &LoopClosure) -> Result<i32> {
+    window()?
+        .request_animation_frame(callback.as_ref().unchecked_ref())
+        .map_err(|err| anyhow!("Error requesting animation frame {:#?}", err))
+}
+
+pub fn create_raf_closure(f: impl FnMut(f64) + 'static) -> LoopClosure {
+    closure_wrap(Box::new(f))
+}
+
+pub fn closure_wrap<T: WasmClosure + ?Sized>(data: Box<T>) -> Closure<T> {
+    Closure::wrap(data)
+}
+
+pub fn now() -> Result<f64> {
+    Ok(window()?
+        .performance()
+        .ok_or_else(|| anyhow!("Performance object not found"))?
+        .now())
 }
