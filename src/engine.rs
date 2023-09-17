@@ -34,6 +34,12 @@ pub struct KeyState {
     pressed_keys: HashMap<String, web_sys::KeyboardEvent>,
 }
 
+#[derive(Clone, Copy)]
+pub struct Point {
+    pub x: i16,
+    pub y: i16,
+}
+
 impl KeyState {
     fn new() -> Self {
         KeyState {
@@ -189,7 +195,7 @@ fn process_input(state: &mut KeyState, keyevent_receiver: &mut UnboundedReceiver
             Err(_err) => break,
             Ok(Some(evt)) => match evt {
                 KeyPress::KeyUp(evt) => state.set_released(&evt.code()),
-                KeyPress::KeyDown(evt) => state.set_released(&evt.code()),
+                KeyPress::KeyDown(evt) => state.set_pressed(&evt.code(), evt),
             },
         };
     }
