@@ -203,7 +203,6 @@ mod red_hat_boy_state {
 pub enum WalkTheDog {
     Loading,
     Loaded(RedHatBoy),
-    // rhb: Option<RedHatBoy>,
 }
 
 #[derive(Deserialize, Clone)]
