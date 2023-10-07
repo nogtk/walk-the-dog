@@ -7,7 +7,7 @@ use futures::channel::{mpsc::unbounded, mpsc::UnboundedReceiver, oneshot::channe
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement, KeyboardEvent};
 
-const FRAME_SIZE: f32 = 1.0 / 60.0 * 100.0;
+const FRAME_SIZE: f32 = 1.0 / 60.0 * 1000.0;
 
 #[async_trait(?Send)]
 pub trait Game {
