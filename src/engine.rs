@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::channel::{mpsc::unbounded, mpsc::UnboundedReceiver, oneshot::channel};
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
-use web_sys::{CanvasRenderingContext2d, HtmlImageElement, KeyboardEvent};
+use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 const FRAME_SIZE: f32 = 1.0 / 60.0 * 1000.0;
 
@@ -143,13 +143,13 @@ pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
     let error_tx = Rc::clone(&success_tx);
     let success_callback = browser::closure_once(move || {
         if let Some(success_tx) = success_tx.lock().ok().and_then(|mut opt| opt.take()) {
-            success_tx.send(Ok(()));
+            let _ = success_tx.send(Ok(()));
         }
     });
 
     let error_callback: Closure<dyn FnMut(JsValue)> = browser::closure_once(move |err| {
         if let Some(error_tx) = error_tx.lock().ok().and_then(|mut opt| opt.take()) {
-            error_tx.send(Err(anyhow!("Error Loading Image: {:#?}", err)));
+            let _ = error_tx.send(Err(anyhow!("Error Loading Image: {:#?}", err)));
         }
     });
 
@@ -168,13 +168,13 @@ fn prepare_input() -> Result<UnboundedReceiver<KeyPress>> {
     let keyup_sender = Rc::clone(&keydown_sender);
 
     let onkeydown = browser::closure_wrap(Box::new(move |keycode: web_sys::KeyboardEvent| {
-        keydown_sender
+        let _ = keydown_sender
             .borrow_mut()
             .start_send(KeyPress::KeyDown(keycode));
     }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
 
     let onkeyup = browser::closure_wrap(Box::new(move |keycode: web_sys::KeyboardEvent| {
-        keyup_sender
+        let _ = keyup_sender
             .borrow_mut()
             .start_send(KeyPress::KeyUp(keycode));
     }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);

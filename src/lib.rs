@@ -5,8 +5,6 @@ mod game;
 
 use engine::GameLoop;
 use game::WalkTheDog;
-use serde::Deserialize;
-use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global

@@ -1,7 +1,7 @@
 use self::red_hat_boy_state::*;
 use crate::{
     browser,
-    engine::{self, Game, KeyState, Point, Rect, Renderer},
+    engine::{self, Game, KeyState, Rect, Renderer},
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -11,8 +11,6 @@ use web_sys::HtmlImageElement;
 
 mod red_hat_boy_state {
     use crate::engine::Point;
-
-    use super::RedHatBoy;
 
     const FLOOR: i16 = 475;
 
@@ -218,7 +216,7 @@ struct Cell {
     frame: SheetRect,
 }
 
-struct RedHatBoy {
+pub struct RedHatBoy {
     state_machine: RedHatBoyStateMachine,
     sprite_sheet: Sheet,
     image: HtmlImageElement,
@@ -390,7 +388,7 @@ impl Game for WalkTheDog {
                 let json = browser::fetch_json("rhb.json").await?;
 
                 let rhb = RedHatBoy::new(
-                    json.into_serde::<Sheet>()?,
+                    serde_wasm_bindgen::from_value::<Sheet>(json).unwrap(),
                     engine::load_image("rhb.png").await?,
                 );
                 Ok(Box::new(WalkTheDog::Loaded(rhb)))
