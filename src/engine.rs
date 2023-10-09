@@ -4,6 +4,7 @@ use crate::browser::{self, LoopClosure};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::channel::{mpsc::unbounded, mpsc::UnboundedReceiver, oneshot::channel};
+use serde::Deserialize;
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
@@ -14,6 +15,21 @@ pub trait Game {
     async fn initialize(&self) -> Result<Box<dyn Game>>;
     fn update(&mut self, keystate: &KeyState);
     fn draw(&self, renderer: &Renderer);
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Cell {
+    pub frame: SheetRect,
+    pub sprite_source_size: SheetRect,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SheetRect {
+    pub x: i16,
+    pub y: i16,
+    pub w: i16,
+    pub h: i16,
 }
 
 pub struct GameLoop {
@@ -28,6 +44,14 @@ pub struct Rect {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+}
+impl Rect {
+    pub fn intersects(&self, rect: &Rect) -> bool {
+        self.x < (rect.x + rect.width)
+            && self.x + self.width > rect.x
+            && self.y < (rect.y + rect.height)
+            && self.y + self.height > rect.y
+    }
 }
 
 pub struct KeyState {
@@ -144,14 +168,28 @@ impl Renderer {
 pub struct Image {
     element: HtmlImageElement,
     position: Point,
+    bounding_box: Rect,
 }
 
 impl Image {
     pub fn new(element: HtmlImageElement, position: Point) -> Self {
-        Self { element, position }
+        let bounding_box = Rect {
+            x: position.x.into(),
+            y: position.y.into(),
+            width: element.width() as f32,
+            height: element.height() as f32,
+        };
+        Self {
+            element,
+            position,
+            bounding_box,
+        }
     }
     pub fn draw(&self, renderer: &Renderer) {
         renderer.draw_entire_image(&self.element, &self.position);
+    }
+    pub fn bounding_box(&self) -> &Rect {
+        &self.bounding_box
     }
 }
 
