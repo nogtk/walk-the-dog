@@ -9,10 +9,15 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use web_sys::HtmlImageElement;
 
+const HEIGHT: i16 = 600;
+
 mod red_hat_boy_state {
     use crate::engine::Point;
 
+    use super::HEIGHT;
+
     const FLOOR: i16 = 475;
+    const PLAYER_HEIGHT: i16 = HEIGHT - FLOOR;
     const STARTING_POINT: i16 = -20;
 
     const IDLE_FRAME_NAME: &str = "Idle";
@@ -68,6 +73,10 @@ mod red_hat_boy_state {
             if self.position.y > FLOOR {
                 self.position.y = FLOOR;
             }
+            self
+        }
+        fn set_on(mut self, position: i16) -> Self {
+            self.position.y = position - PLAYER_HEIGHT;
             self
         }
         fn reset_frame(mut self) -> Self {
@@ -156,6 +165,13 @@ mod red_hat_boy_state {
             }
         }
 
+        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+            RedHatBoyState {
+                context: self.context.set_on(position as i16),
+                _state: Running {},
+            }
+        }
+
         pub fn knock_out(self) -> RedHatBoyState<Falling> {
             RedHatBoyState {
                 context: self.context.reset_frame().stop(),
@@ -218,20 +234,20 @@ mod red_hat_boy_state {
         pub fn update(mut self) -> JumpingEndState {
             self.context = self.context.update(JUMPING_FRAMES);
             if self.context.position.y >= FLOOR {
-                JumpingEndState::Complete(self.land())
+                JumpingEndState::Landing(self.land_on(HEIGHT.into()))
             } else {
                 JumpingEndState::Jumping(self)
             }
         }
-        pub fn land(self) -> RedHatBoyState<Running> {
+        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context.reset_frame(),
+                context: self.context.reset_frame().set_on(position as i16),
                 _state: Running {},
             }
         }
     }
     pub enum JumpingEndState {
-        Complete(RedHatBoyState<Running>),
+        Landing(RedHatBoyState<Running>),
         Jumping(RedHatBoyState<Jumping>),
     }
 
@@ -274,10 +290,60 @@ pub enum WalkTheDog {
     Loaded(Walk),
 }
 
+struct Platform {
+    sheet: Sheet,
+    image: HtmlImageElement,
+    position: Point,
+}
+
+impl Platform {
+    fn new(sheet: Sheet, image: HtmlImageElement, position: Point) -> Self {
+        Platform {
+            sheet,
+            image,
+            position,
+        }
+    }
+
+    fn draw(&self, renderer: &Renderer) {
+        let platform = self
+            .sheet
+            .frames
+            .get("13.png")
+            .expect("13.png does not exist");
+
+        renderer.draw_image(
+            &self.image,
+            &Rect {
+                x: platform.frame.x.into(),
+                y: platform.frame.y.into(),
+                width: (platform.frame.w * 3).into(),
+                height: platform.frame.h.into(),
+            },
+            &self.bounding_box(),
+        );
+    }
+
+    fn bounding_box(&self) -> Rect {
+        let platform = self
+            .sheet
+            .frames
+            .get("13.png")
+            .expect("13.png does not exist");
+        Rect {
+            x: self.position.x.into(),
+            y: self.position.y.into(),
+            width: (platform.frame.w * 3).into(),
+            height: platform.frame.h.into(),
+        }
+    }
+}
+
 pub struct Walk {
     boy: RedHatBoy,
     background: Image,
     stone: Image,
+    platform: Platform,
 }
 
 pub struct RedHatBoy {
@@ -348,6 +414,10 @@ impl RedHatBoy {
         self.state_machine = self.state_machine.update();
     }
 
+    fn land_on(&mut self, position: f32) {
+        self.state_machine = self.state_machine.transition(Event::Land(position));
+    }
+
     fn knock_out(&mut self) {
         self.state_machine = self.state_machine.transition(Event::KnockOut);
     }
@@ -399,7 +469,7 @@ impl From<RedHatBoyState<Jumping>> for RedHatBoyStateMachine {
 impl From<JumpingEndState> for RedHatBoyStateMachine {
     fn from(end_state: JumpingEndState) -> Self {
         match end_state {
-            JumpingEndState::Complete(running_state) => running_state.into(),
+            JumpingEndState::Landing(running_state) => running_state.into(),
             JumpingEndState::Jumping(jumping_state) => jumping_state.into(),
         }
     }
@@ -431,6 +501,7 @@ pub enum Event {
     Slide,
     Update,
     Jump,
+    Land(f32),
     KnockOut,
 }
 
@@ -448,6 +519,12 @@ impl RedHatBoyStateMachine {
             (RedHatBoyStateMachine::Jumping(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Sliding(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Falling(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Jumping(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
+            (RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
             _ => self,
         }
     }
@@ -496,6 +573,12 @@ impl Game for WalkTheDog {
 
                 let background = engine::load_image("BG.png").await?;
                 let stone = engine::load_image("stone.png").await?;
+                let platform_sheet = browser::fetch_json("tiles.json").await?;
+                let platform = Platform::new(
+                    serde_wasm_bindgen::from_value::<Sheet>(platform_sheet).unwrap(),
+                    engine::load_image("tiles.png").await?,
+                    Point { x: 200, y: 400 },
+                );
                 let rhb = RedHatBoy::new(
                     serde_wasm_bindgen::from_value::<Sheet>(json).unwrap(),
                     engine::load_image("rhb.png").await?,
@@ -504,6 +587,7 @@ impl Game for WalkTheDog {
                     boy: rhb,
                     background: Image::new(background, Point { x: 0, y: 0 }),
                     stone: Image::new(stone, Point { x: 150, y: 547 }),
+                    platform,
                 })))
             }
             WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
@@ -525,6 +609,15 @@ impl Game for WalkTheDog {
             }
 
             walk.boy.update();
+
+            if walk
+                .boy
+                .bounding_box()
+                .intersects(&walk.platform.bounding_box())
+            {
+                walk.boy.land_on(walk.platform.bounding_box().y);
+            }
+
             if walk
                 .boy
                 .bounding_box()
@@ -547,6 +640,7 @@ impl Game for WalkTheDog {
             walk.background.draw(renderer);
             walk.boy.draw(renderer);
             walk.stone.draw(renderer);
+            walk.platform.draw(renderer)
         }
     }
 }
