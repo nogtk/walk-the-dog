@@ -27,7 +27,7 @@ mod red_hat_boy_state {
     const RUN_FRAME_NAME: &str = "Run";
     const RUNNING_FRAMES: u8 = 23;
 
-    const RUNNING_SPEED: i16 = 3;
+    const RUNNING_SPEED: i16 = 4;
 
     const SLIDING_FRAMES: u8 = 14;
     const SLIDING_FRAME_NAME: &str = "Slide";
@@ -330,11 +330,37 @@ impl Platform {
                 width: (platform.frame.w * 3).into(),
                 height: platform.frame.h.into(),
             },
-            &self.bounding_box(),
+            &self.destination_box(),
         );
     }
 
-    fn bounding_box(&self) -> Rect {
+    fn bounding_boxes(&self) -> Vec<Rect> {
+        const X_OFFSET: f32 = 60.0;
+        const END_HEIGHT: f32 = 54.0;
+        let destination_box = self.destination_box();
+        let bounding_box_one = Rect {
+            x: destination_box.x,
+            y: destination_box.y,
+            width: X_OFFSET,
+            height: END_HEIGHT,
+        };
+        let bounding_box_two = Rect {
+            x: destination_box.x + X_OFFSET,
+            y: destination_box.y,
+            width: destination_box.width - (X_OFFSET * 2.0),
+            height: destination_box.height,
+        };
+        let bounding_box_three = Rect {
+            x: destination_box.x + destination_box.width - X_OFFSET,
+            y: destination_box.y,
+            width: X_OFFSET,
+            height: END_HEIGHT,
+        };
+
+        vec![bounding_box_one, bounding_box_two, bounding_box_three]
+    }
+
+    fn destination_box(&self) -> Rect {
         let platform = self
             .sheet
             .frames
@@ -386,7 +412,7 @@ impl RedHatBoy {
     fn current_sprite(&self) -> Option<&Cell> {
         self.sprite_sheet.frames.get(&self.frame_name())
     }
-    fn bounding_box(&self) -> Rect {
+    fn destination_box(&self) -> Rect {
         let sprite = self.current_sprite().expect("Cell not found");
 
         Rect {
@@ -397,6 +423,17 @@ impl RedHatBoy {
             width: sprite.frame.w.into(),
             height: sprite.frame.h.into(),
         }
+    }
+    fn bounding_box(&self) -> Rect {
+        const X_OFFSET: f32 = 18.0;
+        const Y_OFFSET: f32 = 14.0;
+        const WIDTH_OFFSET: f32 = 28.0;
+        let mut bounding_box = self.destination_box();
+        bounding_box.x += X_OFFSET;
+        bounding_box.width -= WIDTH_OFFSET;
+        bounding_box.y += Y_OFFSET;
+        bounding_box.height -= Y_OFFSET;
+        bounding_box
     }
 
     fn draw(&self, renderer: &Renderer) {
@@ -410,7 +447,7 @@ impl RedHatBoy {
                 width: sprite.frame.w.into(),
                 height: sprite.frame.h.into(),
             },
-            &self.bounding_box(),
+            &self.destination_box(),
         );
     }
 
@@ -583,6 +620,10 @@ impl WalkTheDog {
     }
 }
 
+const FIRST_PLATFORM: i16 = 370;
+const LOW_PLATFORM: i16 = 420;
+const HIGH_PLATFORM: i16 = 375;
+
 #[async_trait(?Send)]
 impl Game for WalkTheDog {
     async fn initialize(&self) -> Result<Box<dyn Game>> {
@@ -596,7 +637,10 @@ impl Game for WalkTheDog {
                 let platform = Platform::new(
                     serde_wasm_bindgen::from_value::<Sheet>(platform_sheet).unwrap(),
                     engine::load_image("tiles.png").await?,
-                    Point { x: 200, y: 400 },
+                    Point {
+                        x: FIRST_PLATFORM,
+                        y: LOW_PLATFORM,
+                    },
                 );
                 let rhb = RedHatBoy::new(
                     serde_wasm_bindgen::from_value::<Sheet>(json).unwrap(),
@@ -629,15 +673,13 @@ impl Game for WalkTheDog {
 
             walk.boy.update();
 
-            if walk
-                .boy
-                .bounding_box()
-                .intersects(&walk.platform.bounding_box())
-            {
-                if walk.boy.velocity_y() > 0 && walk.boy.pos_y() < walk.platform.position.y {
-                    walk.boy.land_on(walk.platform.bounding_box().y);
-                } else {
-                    walk.boy.knock_out();
+            for bounding_box in &walk.platform.bounding_boxes() {
+                if walk.boy.bounding_box().intersects(bounding_box) {
+                    if walk.boy.velocity_y() > 0 && walk.boy.pos_y() < walk.platform.position.y {
+                        walk.boy.land_on(bounding_box.y);
+                    } else {
+                        walk.boy.knock_out();
+                    }
                 }
             }
 
