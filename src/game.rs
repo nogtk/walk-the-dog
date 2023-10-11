@@ -17,6 +17,7 @@ mod red_hat_boy_state {
     use super::HEIGHT;
 
     const FLOOR: i16 = 475;
+    const TERMINAL_VELOCITY: i16 = 20;
     const PLAYER_HEIGHT: i16 = HEIGHT - FLOOR;
     const STARTING_POINT: i16 = -20;
 
@@ -60,7 +61,9 @@ mod red_hat_boy_state {
     }
     impl RedHatBoyContext {
         pub fn update(mut self, frame_count: u8) -> Self {
-            self.velocity.y += GRAVITY;
+            if self.velocity.y < TERMINAL_VELOCITY {
+                self.velocity.y += GRAVITY;
+            }
 
             if self.frame < frame_count {
                 self.frame += 1;
@@ -188,6 +191,13 @@ mod red_hat_boy_state {
     impl RedHatBoyState<Sliding> {
         pub fn frame_name(&self) -> &str {
             SLIDING_FRAME_NAME
+        }
+
+        pub fn land_on(self, position: f32) -> RedHatBoyState<Sliding> {
+            RedHatBoyState {
+                context: self.context.set_on(position as i16),
+                _state: Sliding {},
+            }
         }
 
         pub fn knock_out(self) -> RedHatBoyState<Falling> {
@@ -523,6 +533,9 @@ impl RedHatBoyStateMachine {
                 state.land_on(position).into()
             }
             (RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
+            (RedHatBoyStateMachine::Sliding(state), Event::Land(position)) => {
                 state.land_on(position).into()
             }
             _ => self,
