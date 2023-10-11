@@ -96,6 +96,7 @@ mod red_hat_boy_state {
         }
         fn stop(mut self) -> Self {
             self.velocity.x = 0;
+            self.velocity.y = 0;
             self
         }
     }
