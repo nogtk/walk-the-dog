@@ -70,7 +70,6 @@ mod red_hat_boy_state {
             } else {
                 self.frame = 0;
             }
-            self.position.x += self.velocity.x;
             self.position.y += self.velocity.y;
 
             if self.position.y > FLOOR {
@@ -383,6 +382,12 @@ pub struct Walk {
     platform: Platform,
 }
 
+impl Walk {
+    fn velocity(&self) -> i16 {
+        -self.boy.walking_speed()
+    }
+}
+
 pub struct RedHatBoy {
     state_machine: RedHatBoyStateMachine,
     sprite_sheet: Sheet,
@@ -412,6 +417,9 @@ impl RedHatBoy {
     }
     fn current_sprite(&self) -> Option<&Cell> {
         self.sprite_sheet.frames.get(&self.frame_name())
+    }
+    fn walking_speed(&self) -> i16 {
+        self.state_machine.context().velocity.x
     }
     fn destination_box(&self) -> Rect {
         let sprite = self.current_sprite().expect("Cell not found");
@@ -621,7 +629,7 @@ impl WalkTheDog {
     }
 }
 
-const FIRST_PLATFORM: i16 = 370;
+const FIRST_PLATFORM: i16 = 400;
 const LOW_PLATFORM: i16 = 420;
 const HIGH_PLATFORM: i16 = 375;
 
@@ -673,6 +681,10 @@ impl Game for WalkTheDog {
             }
 
             walk.boy.update();
+
+            walk.platform.position.x += walk.velocity();
+            walk.stone.move_horizontally(walk.velocity());
+            walk.background.move_horizontally(walk.velocity());
 
             for bounding_box in &walk.platform.bounding_boxes() {
                 if walk.boy.bounding_box().intersects(bounding_box) {
