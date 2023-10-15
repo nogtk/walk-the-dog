@@ -168,9 +168,9 @@ mod red_hat_boy_state {
             }
         }
 
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context.set_on(position as i16),
+                context: self.context.set_on(position),
                 _state: Running {},
             }
         }
@@ -193,7 +193,7 @@ mod red_hat_boy_state {
             SLIDING_FRAME_NAME
         }
 
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Sliding> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Sliding> {
             RedHatBoyState {
                 context: self.context.set_on(position as i16),
                 _state: Sliding {},
@@ -249,9 +249,9 @@ mod red_hat_boy_state {
                 JumpingEndState::Jumping(self)
             }
         }
-        pub fn land_on(self, position: f32) -> RedHatBoyState<Running> {
+        pub fn land_on(self, position: i16) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context.reset_frame().set_on(position as i16),
+                context: self.context.reset_frame().set_on(position),
                 _state: Running {},
             }
         }
@@ -374,11 +374,79 @@ impl Platform {
     }
 }
 
+pub trait Obstacle {
+    fn check_intersection(&self, boy: &mut RedHatBoy);
+    fn draw(&self, renderer: &Renderer);
+    fn move_horizontally(&mut self, x: i16);
+}
+
+impl Obstacle for Platform {
+    fn draw(&self, renderer: &Renderer) {
+        let platform = self
+            .sheet
+            .frames
+            .get("13.png")
+            .expect("13.png does not exist");
+
+        renderer.draw_image(
+            &self.image,
+            &Rect::new_from_x_y(
+                platform.frame.x.into(),
+                platform.frame.y.into(),
+                (platform.frame.w * 3).into(),
+                platform.frame.h.into(),
+            ),
+            &self.destination_box(),
+        );
+    }
+    fn move_horizontally(&mut self, x: i16) {
+        self.position.x += x;
+    }
+    fn check_intersection(&self, boy: &mut RedHatBoy) {
+        if let Some(box_to_land_on) = self
+            .bounding_boxes()
+            .iter()
+            .find(|&bounding_box| boy.bounding_box().intersects(bounding_box))
+        {
+            if boy.velocity_y() > 0 && boy.pos_y() < self.position.y {
+                boy.land_on(box_to_land_on.y());
+            } else {
+                boy.knock_out();
+            }
+        }
+    }
+}
+
+pub struct Barrier {
+    image: Image,
+}
+
+impl Obstacle for Barrier {
+    fn check_intersection(&self, boy: &mut RedHatBoy) {
+        if boy.bounding_box().intersects(self.image.bounding_box()) {
+            boy.knock_out()
+        }
+    }
+
+    fn draw(&self, renderer: &Renderer) {
+        self.image.draw(renderer)
+    }
+
+    fn move_horizontally(&mut self, x: i16) {
+        self.image.move_horizontally(x)
+    }
+}
+
+impl Barrier {
+    pub fn new(image: Image) -> Self {
+        Barrier { image }
+    }
+}
+
 pub struct Walk {
     boy: RedHatBoy,
     backgrounds: [Image; 2],
-    stone: Image,
-    platform: Platform,
+    obstacles: Vec<Box<dyn Obstacle>>,
 }
 
 impl Walk {
@@ -473,7 +541,7 @@ impl RedHatBoy {
         self.state_machine = self.state_machine.update();
     }
 
-    fn land_on(&mut self, position: f32) {
+    fn land_on(&mut self, position: i16) {
         self.state_machine = self.state_machine.transition(Event::Land(position));
     }
 
@@ -560,7 +628,7 @@ pub enum Event {
     Slide,
     Update,
     Jump,
-    Land(f32),
+    Land(i16),
     KnockOut,
 }
 
@@ -665,8 +733,10 @@ impl Game for WalkTheDog {
                             },
                         ),
                     ],
-                    stone: Image::new(stone, Point { x: 150, y: 547 }),
-                    platform,
+                    obstacles: vec![
+                        Box::new(Barrier::new(Image::new(stone, Point { x: 150, y: 546 }))),
+                        Box::new(platform),
+                    ],
                 })))
             }
             WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
@@ -689,8 +759,6 @@ impl Game for WalkTheDog {
 
             walk.boy.update();
 
-            walk.platform.position.x += walk.velocity();
-            walk.stone.move_horizontally(walk.velocity());
             let velocity = walk.velocity();
             let [first_background, second_background] = &mut walk.backgrounds;
             first_background.move_horizontally(velocity);
@@ -703,23 +771,10 @@ impl Game for WalkTheDog {
                 second_background.set_x(first_background.right());
             }
 
-            for bounding_box in &walk.platform.bounding_boxes() {
-                if walk.boy.bounding_box().intersects(bounding_box) {
-                    if walk.boy.velocity_y() > 0 && walk.boy.pos_y() < walk.platform.position.y {
-                        walk.boy.land_on(bounding_box.y() as f32);
-                    } else {
-                        walk.boy.knock_out();
-                    }
-                }
-            }
-
-            if walk
-                .boy
-                .bounding_box()
-                .intersects(walk.stone.bounding_box())
-            {
-                walk.boy.knock_out();
-            }
+            walk.obstacles.iter_mut().for_each(|obstacle| {
+                obstacle.move_horizontally(velocity);
+                obstacle.check_intersection(&mut walk.boy);
+            });
         }
     }
 
@@ -731,8 +786,9 @@ impl Game for WalkTheDog {
                 background.draw(renderer);
             });
             walk.boy.draw(renderer);
-            walk.stone.draw(renderer);
-            walk.platform.draw(renderer)
+            walk.obstacles
+                .iter()
+                .for_each(|obstacle| obstacle.draw(renderer));
         }
     }
 }
