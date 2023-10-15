@@ -39,6 +39,7 @@ pub struct GameLoop {
 pub struct Renderer {
     context: CanvasRenderingContext2d,
 }
+#[derive(Default)]
 pub struct Rect {
     pub position: Point,
     pub width: i16,
@@ -86,10 +87,34 @@ pub struct KeyState {
     pressed_keys: HashMap<String, web_sys::KeyboardEvent>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Point {
     pub x: i16,
     pub y: i16,
+}
+
+pub struct SpriteSheet {
+    pub sheet: Sheet,
+    pub image: HtmlImageElement,
+}
+
+impl SpriteSheet {
+    pub fn new(sheet: Sheet, image: HtmlImageElement) -> Self {
+        SpriteSheet { sheet, image }
+    }
+
+    pub fn cell(&self, name: &str) -> Option<&Cell> {
+        self.sheet.frames.get(name)
+    }
+
+    pub fn draw(&self, renderer: &Renderer, source: &Rect, destination: &Rect) {
+        renderer.draw_image(&self.image, source, destination)
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Sheet {
+    pub frames: HashMap<String, Cell>,
 }
 
 impl KeyState {
