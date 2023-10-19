@@ -1,12 +1,15 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::Mutex};
 
-use crate::browser::{self, LoopClosure};
+use crate::{
+    browser::{self, LoopClosure},
+    sound,
+};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use futures::channel::{mpsc::unbounded, mpsc::UnboundedReceiver, oneshot::channel};
 use serde::Deserialize;
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
-use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
+use web_sys::{AudioBuffer, AudioContext, CanvasRenderingContext2d, HtmlImageElement};
 
 const FRAME_SIZE: f32 = 1.0 / 60.0 * 1000.0;
 
@@ -249,6 +252,36 @@ impl Image {
     pub fn right(&self) -> i16 {
         self.bounding_box().right()
     }
+}
+
+#[derive(Clone)]
+pub struct Audio {
+    context: AudioContext,
+}
+
+impl Audio {
+    pub fn new() -> Result<Self> {
+        Ok(Audio {
+            context: sound::create_audio_context()?,
+        })
+    }
+
+    pub async fn load_sound(&self, filename: &str) -> Result<Sound> {
+        let array_buffer = browser::fetch_array_buffer(filename).await?;
+        let audio_buffer = sound::decode_audio_data(&self.context, &array_buffer).await?;
+        Ok(Sound {
+            buffer: audio_buffer,
+        })
+    }
+
+    pub fn play_sound(&self, sound: &Sound) -> Result<()> {
+        sound::play_sound(&self.context, &sound.buffer)
+    }
+}
+
+#[derive(Clone)]
+pub struct Sound {
+    buffer: AudioBuffer,
 }
 
 pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
