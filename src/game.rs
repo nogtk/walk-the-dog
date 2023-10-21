@@ -726,6 +726,8 @@ impl Game for WalkTheDog {
                 let json = browser::fetch_json("rhb.json").await?;
                 let audio = Audio::new()?;
                 let sound = audio.load_sound("SFX_Jump_23.mp3").await?;
+                let background_music = audio.load_sound("background_song.mp3").await?;
+                audio.play_looping_sound(&background_music)?;
 
                 let tiles = browser::fetch_json("tiles.json").await?;
                 let sprite_sheet = Rc::new(SpriteSheet::new(
