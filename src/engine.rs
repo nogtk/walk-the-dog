@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use futures::channel::{mpsc::unbounded, mpsc::UnboundedReceiver, oneshot::channel};
 use serde::Deserialize;
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
-use web_sys::{AudioBuffer, AudioContext, CanvasRenderingContext2d, HtmlImageElement};
+use web_sys::{AudioBuffer, AudioContext, CanvasRenderingContext2d, HtmlElement, HtmlImageElement};
 
 const FRAME_SIZE: f32 = 1.0 / 60.0 * 1000.0;
 
@@ -352,4 +352,14 @@ fn process_input(state: &mut KeyState, keyevent_receiver: &mut UnboundedReceiver
             },
         };
     }
+}
+
+pub fn add_click_handler(elem: HtmlElement) -> UnboundedReceiver<()> {
+    let (mut click_sender, click_receiver) = unbounded();
+    let on_click = browser::closure_wrap(Box::new(move || {
+        click_sender.start_send(());
+    }) as Box<dyn FnMut()>);
+    elem.set_onclick(Some(on_click.as_ref().unchecked_ref()));
+    on_click.forget();
+    click_receiver
 }
