@@ -14,13 +14,10 @@ pub fn create_audio_context() -> Result<AudioContext> {
 }
 
 pub fn play_sound(ctx: &AudioContext, buffer: &AudioBuffer, looping: LOOPING) -> Result<()> {
-    let track_source = create_buffer_source(ctx)?;
+    let track_source = create_track_source(ctx, buffer)?;
     if matches!(looping, LOOPING::YES) {
         track_source.set_loop(true);
     }
-
-    track_source.set_buffer(Some(&buffer));
-    connect_with_audio_node(&track_source, &ctx.destination())?;
 
     track_source
         .start()
