@@ -285,7 +285,7 @@ impl Audio {
 
 #[derive(Clone)]
 pub struct Sound {
-    buffer: AudioBuffer,
+    pub(crate) buffer: AudioBuffer,
 }
 
 pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
@@ -362,4 +362,76 @@ pub fn add_click_handler(elem: HtmlElement) -> UnboundedReceiver<()> {
     elem.set_onclick(Some(on_click.as_ref().unchecked_ref()));
     on_click.forget();
     click_receiver
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn two_rects_that_intersect_on_the_left() {
+        let rect1 = Rect {
+            position: Point { x: 10, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        let rect2 = Rect {
+            position: Point { x: 0, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        assert_eq!(rect2.intersects(&rect1), true);
+    }
+
+    #[test]
+    fn two_rects_that_intersect_on_the_bottom() {
+        let rect1 = Rect {
+            position: Point { x: 10, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        let rect2 = Rect {
+            position: Point { x: 10, y: 0 },
+            height: 100,
+            width: 100,
+        };
+
+        assert_eq!(rect2.intersects(&rect1), true);
+    }
+
+    #[test]
+    fn two_rects_that_intersect_on_the_right() {
+        let rect1 = Rect {
+            position: Point { x: 0, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        let rect2 = Rect {
+            position: Point { x: 10, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        assert_eq!(rect1.intersects(&rect2), true);
+    }
+
+    #[test]
+    fn two_rects_that_not_intersect() {
+        let rect1 = Rect {
+            position: Point { x: 10, y: 10 },
+            height: 100,
+            width: 100,
+        };
+
+        let rect2 = Rect {
+            position: Point { x: 110, y: 110 },
+            height: 100,
+            width: 100,
+        };
+
+        assert_eq!(rect2.intersects(&rect1), false);
+    }
 }

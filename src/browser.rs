@@ -19,6 +19,13 @@ macro_rules! log {
   }
 }
 
+#[allow(unused_macros)]
+macro_rules! error {
+  ( $( $t:tt )* ) => {
+    web_sys::console::error_1(&format!( $( $t )* ).into())
+  }
+}
+
 pub type LoopClosure = Closure<dyn FnMut(f64)>;
 
 pub fn window() -> Result<Window> {
@@ -168,4 +175,19 @@ fn find_ui() -> Result<Element> {
         doc.get_element_by_id("ui")
             .ok_or_else(|| anyhow!("No UI element found"))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    async fn test_error_loading_json() {
+        let json = fetch_json("not_there.json").await;
+
+        assert_eq!(json.is_err(), true);
+    }
 }
