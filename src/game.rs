@@ -215,7 +215,7 @@ mod red_hat_boy_state {
 
         pub fn land_on(self, position: i16) -> RedHatBoyState<Sliding> {
             RedHatBoyState {
-                context: self.context.set_on(position as i16),
+                context: self.context.set_on(position),
                 _state: Sliding {},
             }
         }
@@ -264,7 +264,7 @@ mod red_hat_boy_state {
         pub fn update(mut self) -> JumpingEndState {
             self.context = self.context.update(JUMPING_FRAMES);
             if self.context.position.y >= FLOOR {
-                JumpingEndState::Landing(self.land_on(HEIGHT.into()))
+                JumpingEndState::Landing(self.land_on(HEIGHT))
             } else {
                 JumpingEndState::Jumping(self)
             }
@@ -447,7 +447,7 @@ impl WalkTheDogState<Walking> {
     fn end_game(self) -> WalkTheDogState<GameOver> {
         let receiver = browser::draw_ui("<button id='new_game'>New Game</button> ")
             .and_then(|_unit| browser::find_html_element_by_id("new_game"))
-            .map(|element| engine::add_click_handler(element))
+            .map(engine::add_click_handler)
             .unwrap();
 
         WalkTheDogState {
@@ -767,10 +767,10 @@ impl RedHatBoy {
         let sprite = self.current_sprite().expect("Cell not found");
 
         Rect::new_from_x_y(
-            (self.state_machine.context().position.x + sprite.sprite_source_size.x as i16).into(),
-            (self.state_machine.context().position.y + sprite.sprite_source_size.y as i16).into(),
-            sprite.frame.w.into(),
-            sprite.frame.h.into(),
+            self.state_machine.context().position.x + sprite.sprite_source_size.x,
+            self.state_machine.context().position.y + sprite.sprite_source_size.y,
+            sprite.frame.w,
+            sprite.frame.h,
         )
     }
     fn bounding_box(&self) -> Rect {
@@ -791,10 +791,10 @@ impl RedHatBoy {
         renderer.draw_image(
             &self.image,
             &Rect::new_from_x_y(
-                sprite.frame.x.into(),
-                sprite.frame.y.into(),
-                sprite.frame.w.into(),
-                sprite.frame.h.into(),
+                sprite.frame.x,
+                sprite.frame.y,
+                sprite.frame.w,
+                sprite.frame.h,
             ),
             &self.destination_box(),
         );
@@ -1049,7 +1049,7 @@ fn rightmost(obstacle_list: &Vec<Box<dyn Obstacle>>) -> i16 {
     obstacle_list
         .iter()
         .map(|obstacle| obstacle.right())
-        .max_by(|x, y| x.cmp(&y))
+        .max_by(|x, y| x.cmp(y))
         .unwrap_or(0)
 }
 
@@ -1102,7 +1102,7 @@ mod tests {
             _state: GameOver {
                 new_game_event: receiver,
             },
-            walk: walk,
+            walk,
         };
 
         let document = browser::document().unwrap();

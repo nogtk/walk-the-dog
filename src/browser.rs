@@ -188,6 +188,6 @@ mod tests {
     async fn test_error_loading_json() {
         let json = fetch_json("not_there.json").await;
 
-        assert_eq!(json.is_err(), true);
+        assert!(json.is_err());
     }
 }
